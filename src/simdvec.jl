@@ -440,6 +440,12 @@ if isdefined(Base, :bitrotate)
     @inline Base.bitrotate(x::Vec{N, T}, k::Integer) where {N, T} = bitrotate(x, Vec{N, T}(k))
 end
 
+###########
+# MOVEMSK #
+###########
+
+@inline movmsk(x::Vec{N, Bool}) where N = Intrinsics.movmsk(x.data)
+@inline movmski(::Type{Vec{N, Bool}}, x) where N = Vec(Intrinsics.movmski(LVec{N, Bool}, x))
 
 ##############
 # Reductions #

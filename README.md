@@ -125,6 +125,34 @@ julia> Base.Checked.mul_with_overflow(v, 2)
 (<4 x Int8>[80, 96, -116, -20], <4 x Bool>[0, 1, 1, 0])
 ```
 
+## Mask Representations
+
+Julia represents `Bool` as llvm `i8`, where the leading 7 bit are assumed to be zero,
+while llvm represents it as `i1` (there are various representations on the CPU, depending on context).
+
+In order to move between a vector of Bool and a packed integer, it is not possible
+to bitcast between e.g. `Vec{8, Bool}` and `UInt8`. Instead we offer the `movmsk`
+function to convert a `Vec{N, Bool}` to `UInt64` (which in most contexts should 
+compile to a `VPMOVMSKB` variant), and the inverse `movmski` to turn an integer
+into a bit-vector (which should compile to the appropriate `KMOVQ` variant).
+
+These instructions depend on endianness, and are somewhat experimental (i.e. it is
+somewhat unclear from the llvm langref whether scalar <-> vector bitcasts are 
+supposed to be defined for `i1` vectors).
+
+```julia
+julia> using Random
+
+julia> b = Random.bitrand(64); v = Vec(ntuple(i->b[i], 64)); 
+
+julia> b.chunks[1] == SIMD.movmsk(v)
+true
+
+julia> SIMD.movmski(Vec{64, Bool}, b.chunks[1]) === v
+true
+```
+
+
 ## Saturation arithmetic
 
 Saturation arithmetic is a version of arithmetic in which operations are limited

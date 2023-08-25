@@ -771,6 +771,50 @@ end
     )
 end
 
+###########
+# MOVEMSK #
+###########
+
+@generated function movmsk(x::LVec{N,Bool}) where N 
+    if !(N in [1,2,4,8,16,32,64])
+        return :(throw(ArgumentError("Can only handle sizes that are powers of 2, up to 64. Otherwise LLVM silently produces incorrect results."))) 
+    end
+    if N == 64
+        s = """%trunc = trunc <64 x i8> %0 to <64 x i1>
+               %cast = bitcast <64 x i1> %trunc to i64
+               ret i64 %cast"""
+    elseif N < 64
+        s = """%trunc = trunc <$(N) x i8> %0 to <$(N) x i1>
+               %cast = bitcast <$(N) x i1> %trunc to i$(N)
+               %res = zext i$(N) %cast to i64
+               ret i64 %res"""
+    end
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, UInt64, Tuple{LVec{$N, Bool}}, x)
+    )
+end
+
+@generated function movmski(::Type{LVec{N,Bool}}, x::UInt64) where N 
+    if !(N in [1,2,4,8,16,32,64])
+        return :(throw(ArgumentError("Can only handle sizes that are powers of 2, up to 64. Otherwise LLVM silently produces incorrect results."))) 
+    end
+    if N == 64
+        s = """%cast = bitcast  i64 %0 to <64 x i1>
+               %zext = zext <64 x i1> %cast to <64 x i8>
+               ret <64 x i8> %zext"""
+    elseif N < 64
+        s = """%trunc = trunc i64 %0 to i$(N)
+               %cast = bitcast  i$(N) %trunc to <$(N) x i1>
+               %zext = zext <$(N) x i1> %cast to <$(N) x i8>
+               ret <$(N) x i8> %zext"""
+    end
+    return :(
+        $(Expr(:meta, :inline));
+        Base.llvmcall($s, LVec{$N, Bool}, Tuple{UInt64}, x)
+    )
+end
+
 ##################################
 # Horizontal reductions (LLVM 9) #
 ##################################

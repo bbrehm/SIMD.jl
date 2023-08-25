@@ -70,6 +70,16 @@ llvm_ir(f, args) = sprint(code_llvm, f, Base.typesof(args...))
         @test all(Tuple(convert(Vec{8, Float64}, v)) .== Tuple(v))
     end
 
+    @testset "movmsk" begin
+        u = 0x367e409bb34e33eb
+        for N=[1, 2, 4, 8, 16, 32, 64]
+            msk = ~(0xffffffffffffffff>>N<<N)
+            v = Vec(ntuple(i-> u & (1<<(i-1)) != 0, N))
+            @test SIMD.movmsk(v) == u & msk
+            @test SIMD.movmski(Vec{N, Bool}, u) === v
+        end
+    end
+
     @testset "Element-wise access" begin
 
         for i in 1:L8
